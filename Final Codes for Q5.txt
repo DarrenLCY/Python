@@ -1,0 +1,1853 @@
+from collections import defaultdict
+
+"""
+Code from "Foundations of Computing" assignment completed at the 
+University of Melbourne. The purpose of the code was to act as a 
+card player for a specific card game. The rules of the card game 
+were modified by my professor from those of a real-life card game 
+(Unfortunately, I don't remember the name of the game). The code is 
+long since it had to 'compete' against other students' code (the 
+same way players compete against each other during a card game). 
+The matches were run many times on a platform called Grok 
+(https://groklearning.com/), the results were averaged out and a 
+final ranking was given based on how well your code did against others. 
+My code was ranked 32th out of possibly more than 500 students (can't 
+remember the exact number, but it was a huge class). 
+"""
+
+score_dict_reverse = {2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 
+                      8: '8', 9: '9', 10: '0', 11: 'J', 12: 'Q', 13: 'K', 
+                      25: 'A'}
+
+my_colour = {'C': 'BLACK', 'D': 'RED', 'H': 'RED', 'S': 'BLACK'}
+
+score_dict = {'2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8,
+              '9': 9, '0': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 25}
+
+def count_phasedout_1_missing_cards(my_hand):
+        """
+        This function takes the hand of the player and sorts it to suit the 
+        cards that are needed for phase 1. If the hand already contains cards 
+        that can be phased out for phase 1, then the result will be the 2 lists
+        of the phased out cards, in a list. Else, this function returns 
+        the best cards that can be formed out of the hand for phase 1, in a 
+        tuple. This distinction will help to differentiate whether a complete 
+        and valid phase 1 can be formed out of the hand or not, to be used 
+        later in the game
+        
+        The tuple is of the form ([[number of cards having value1, value1],
+        [number of cards having value2, value2]], number of missing cards 
+        needed to complete the phase)
+        """
+                       
+        result = []
+        aces = 0 
+        aces_v2 = 0
+        hand_copy = my_hand.copy()
+        
+        #phase_1_dd is a default dictionary of the number of each value present
+        #in the player's hand at the start of the play
+        #aces and aces_v2 are used to count the number of aces 
+        phase_1_dd = defaultdict(int)
+        for card in hand_copy:         
+            if card[0] != 'A' and card != 'ZZ':
+                phase_1_dd[card[0]] += 1
+            elif card != 'ZZ':
+                aces += 1
+                aces_v2 += 1
+            
+        #phase_1_dd_v2 sorts phase_1_dd, according to the number of each value 
+        #and according to the value as well. This is because, if there is a tie
+        #(for example, we have 2 'KH' and 2 '5S', we would prefer to phase out
+        #a list containing kings first, because they have a higher penalty 
+        #point than '5'. This is specially the case when we have aces, and we
+        #want to combine them with a value to phase out 
+        phase_1_dd_v2 = sorted([(v, score_dict[k]) for (k, v) in 
+                                phase_1_dd.items()], reverse=True) 
+        
+        #Having 2 lists of cards of the same values, without any aces 
+        if phase_1_dd_v2[0][0] >= 3 and phase_1_dd_v2[1][0] >= 3:         
+            for tup in phase_1_dd_v2[0:2]:
+                result.append([])
+                count = 3
+                while count:
+                    for card in hand_copy: 
+                        if card[0] == score_dict_reverse[tup[1]]:
+                            result[-1].append(card)
+                            hand_copy.remove(card)                               
+                            break
+                    count = count - 1                        
+            return result
+        
+        #Having 2 lists of cards of the same values, with aces
+        else:
+            for tup in phase_1_dd_v2[0:2]:
+                if tup[0] == 2:
+                    aces -= 1
+                    max_aces = 1
+                else:
+                    max_aces = 0
+                
+                if aces < 0:
+                    out = [[tup[0], score_dict_reverse[tup[1]]] for tup 
+                           in phase_1_dd_v2[0:2]]
+                    
+                    number_of_missing_cards = 0
+                    for lst in out:
+                        if lst[0] == 1:
+                            number_of_missing_cards += 3
+                        if lst[0] == 2:
+                            number_of_missing_cards += 2
+                
+                    return ([[tup[0], score_dict_reverse[tup[1]]] for tup 
+                             in phase_1_dd_v2[0:2]], 
+                            8 - number_of_missing_cards - aces_v2)
+                    
+                result.append([])
+                count = 3
+                while count:
+                    for card in hand_copy: 
+                        if card[0] == score_dict_reverse[tup[1]]:
+                            result[-1].append(card)
+                            hand_copy.remove(card)                               
+                            break
+                        elif card[0] == 'A' and max_aces != 0:
+                            result[-1].append(card)
+                            hand_copy.remove(card)
+                            max_aces -= 1
+                            break
+                    count = count - 1 
+                for lst in result:
+                    if len(lst) < 3:
+                        out = [[tup[0], score_dict_reverse[tup[1]]] for tup 
+                               in phase_1_dd_v2[0:2]]
+
+                        number_of_missing_cards = 0
+                        for lst in out:
+                            if lst[0] == 1:
+                                number_of_missing_cards += 3
+                            if lst[0] == 2:
+                                number_of_missing_cards += 2
+
+                        return ([[tup[0], score_dict_reverse[tup[1]]] for tup 
+                                 in phase_1_dd_v2[0:2]], 
+                                6 - number_of_missing_cards - aces_v2)
+            return result
+                            
+def count_phasedout_2_missing_cards(my_hand):
+        """
+        This function takes the hand of the player and sorts it to suit the 
+        cards that are needed for phase 2. If the hand already contains cards 
+        that can be phased out for phase 2, then the result will be the list
+        of the phased out cards, in a list. Else, this function returns 
+        the best cards that can be formed out of the hand for phase 2, in a 
+        tuple. This distinction will help to differentiate whether a complete 
+        and valid phase 2 can be formed out of the hand or not, to be used 
+        later in the game
+        
+        The tuple is of the form ((number of cards being suit1, suit1), 
+        number of missing cards needed to complete the phase)
+        """
+                
+        result = []
+        aces = 0
+        hand_copy = my_hand.copy()
+
+        
+        #phase_2_dd is a default dictionary of the number of each suit present
+        #in the player's hand at the start of the play
+        phase_2_dd = defaultdict(int)
+        for card in hand_copy:
+            if card[0] != 'A' and card != 'ZZ':
+                phase_2_dd[card[1]] += 1
+            elif card != 'ZZ':
+                aces += 1
+            
+        #phase_2_dd_v2 sorts phase_1_dd, according to the number of each suit 
+        phase_2_dd_v2 = sorted([(v, k) for (k, v) in 
+                                phase_2_dd.items()], reverse=True) 
+                                   
+        #Having a list of cards of the same suit, without any aces 
+        if phase_2_dd_v2[0][0] >= 7:
+            for tup in phase_2_dd_v2[0:1]:
+                result.append([])
+
+                count = 7
+                while count:
+                    for card in hand_copy: 
+                        if card[1] == phase_2_dd_v2[0][1] and card[0] != 'A':
+                            result[-1].append(card)
+                            hand_copy.remove(card)                               
+                            break
+                    count = count - 1                        
+            return result
+                                                  
+        if phase_2_dd_v2[0][0] + aces >= 7:
+            for tup in phase_2_dd_v2[0:1]:
+                result.append([])                
+                max_aces = 7 - phase_2_dd_v2[0][0] 
+
+                count = 7
+                while count:
+                    for card in hand_copy: 
+                        if card[1] == phase_2_dd_v2[0][1]:
+                            result[-1].append(card)
+                            hand_copy.remove(card)                               
+                            break
+                        elif card[0] == 'A' and max_aces != 0:
+                            result[-1].append(card)
+                            hand_copy.remove(card)
+                            max_aces -= 1
+                            break
+                    count = count - 1                        
+            return result
+        
+        else: 
+            return phase_2_dd_v2[0], 7 - phase_2_dd_v2[0][0]   
+                                
+
+        
+def count_phasedout_3_missing_cards(my_hand):
+        """
+        This function takes the hand of the player and sorts it to suit the 
+        cards that are needed for phase 3. If the hand already contains cards 
+        that can be phased out for phase 3, then the result will be the 2 lists
+        of the phased out cards, in a list. Else, this function returns 
+        the best cards that can be formed out of the hand for phase 3, in a 
+        tuple. This distinction will help to differentiate whether a complete 
+        and valid phase 3 can be formed out of the hand or not, to be used 
+        later in the game
+        
+        The tuple is of the form ([[number of cards having value1, value1],
+        [number of cards having value2, value2]], number of missing cards 
+        needed to complete the phase)
+        """
+                   
+        result = []
+        aces = 0
+        aces_v2 = 0
+        hand_copy = my_hand.copy()
+        
+        #Not many comments inserted for phase 3, because it is almost the same
+        #as for phase 1
+        phase_3_dd = defaultdict(int)
+        for card in hand_copy:         
+            if card[0] != 'A' and card != 'ZZ':
+                phase_3_dd[card[0]] += 1
+            elif card != 'ZZ':
+                aces += 1
+                aces_v2 += 1
+            
+        phase_3_dd_v2 = sorted([(v, score_dict[k]) for (k, v) in 
+                                phase_3_dd.items()], reverse=True) 
+        
+        #Having 2 lists of cards of the same values, without any aces 
+        if phase_3_dd_v2[0][0] >= 4 and phase_3_dd_v2[1][0] >= 4:         
+            for tup in phase_3_dd_v2[0:2]:
+                result.append([])
+                count = 4
+                while count:
+                    for card in hand_copy: 
+                        if card[0] == score_dict_reverse[tup[1]]:
+                            result[-1].append(card)
+                            hand_copy.remove(card)                               
+                            break
+                    count = count - 1                        
+            return result
+        
+        #Having 2 lists of cards of the same values, with aces
+        else:
+            for tup in phase_3_dd_v2[0:2]:
+                if tup[0] == 2:
+                    aces -= 2
+                    max_aces = 2
+                elif tup[0] == 3:
+                    aces -= 1
+                    max_aces = 1
+                else:
+                    max_aces = 0
+
+                if aces < 0:
+                    out = [[tup[0], score_dict_reverse[tup[1]]] for tup 
+                           in phase_3_dd_v2[0:2]]
+                    
+                    number_of_missing_cards = 0
+                    for lst in out:
+                        if lst[0] == 1:
+                            number_of_missing_cards += 3
+                        if lst[0] == 2:
+                            number_of_missing_cards += 2
+                        if lst[0] == 3:
+                            number_of_missing_cards += 1
+                
+                    return ([[tup[0], score_dict_reverse[tup[1]]] for tup 
+                             in phase_3_dd_v2[0:2]], 
+                            8 - number_of_missing_cards - aces_v2)   
+        
+
+                result.append([])
+                count = 4
+                while count:
+                    for card in hand_copy: 
+                        if card[0] == score_dict_reverse[tup[1]]:
+                            result[-1].append(card)
+                            hand_copy.remove(card)                               
+                            break
+                        elif card[0] == 'A' and max_aces != 0:
+                            result[-1].append(card)
+                            hand_copy.remove(card)
+                            max_aces -= 1
+                            break
+                    count = count - 1 
+                    
+                for lst in result:
+                    if len(lst) < 4:
+                        out = [[tup[0], score_dict_reverse[tup[1]]] for tup 
+                               in phase_3_dd_v2[0:2]]
+
+                        number_of_missing_cards = 0
+                        for lst in out:
+                            if lst[0] == 1:
+                                number_of_missing_cards += 3
+                            if lst[0] == 2:
+                                number_of_missing_cards += 2
+                            if lst[0] == 3:
+                                number_of_missing_cards += 1
+
+                        return ([[tup[0], score_dict_reverse[tup[1]]] for tup 
+                                 in phase_3_dd_v2[0:2]], 
+                                8 - number_of_missing_cards - aces_v2)
+            return result
+        
+
+def count_phasedout_4_missing_cards(my_hand):
+    """
+    This function takes the hand of the player and sorts it to suit the 
+    cards that are needed for phase 4. If the hand already contains cards 
+    that can be phased out for phase 4, then the result will be the list
+    of the phased out cards, in a list. Else, this function returns 
+    the best cards that can be formed out of the hand for phase 4, in a 
+    tuple. This distinction will help to differentiate whether a complete 
+    and valid phase 4 can be formed out of the hand or not, to be used 
+    later in the game
+    
+    The tuple is of the form ([values for the chosen best run which we already
+    have], [values for the chosen best run which are still needed], number of 
+    missing cards needed to complete the phase)
+    """
+    
+    #The codes below helps to determine the best run which is available in the 
+    #player's hand, using a dictionary of runs 
+    runs = {'run_1': {'2': 0, '3': 0, '4': 0, '5': 0, 
+                      '6': 0, '7': 0, '8': 0, '9': 0},
+            'run_2': {'3': 0, '4': 0, '5': 0, '6': 0, 
+                      '7': 0, '8': 0, '9': 0, '0': 0},
+            'run_3': {'4': 0, '5': 0, '6': 0, '7': 0, 
+                      '8': 0, '9': 0, '0': 0, 'J': 0},
+            'run_4': {'5': 0, '6': 0, '7': 0, '8': 0, 
+                      '9': 0, '0': 0, 'J': 0, 'Q': 0},
+            'run_5': {'6': 0, '7': 0, '8': 0, '9': 0, 
+                      '0': 0, 'J': 0, 'Q': 0, 'K': 0}}
+    
+    aces = 0
+    hand_copy = my_hand.copy()
+    
+    for card in hand_copy:
+        if card[0] == 'A':
+            aces += 1
+    
+               
+    for card in hand_copy:
+        if card[0] != 'A' and card != 'ZZ':
+
+            try:
+                if runs['run_1'][card[0]] == 0:
+                    runs['run_1'][card[0]] += 1              
+            except:
+                pass 
+        
+            try:
+                if runs['run_2'][card[0]] == 0:
+                    runs['run_2'][card[0]] += 1
+            except:
+                pass 
+        
+            try:
+                if runs['run_3'][card[0]] == 0:
+                    runs['run_3'][card[0]] += 1
+            except:
+                pass 
+        
+            try:
+                if runs['run_4'][card[0]] == 0:
+                    runs['run_4'][card[0]] += 1
+            except:
+                pass 
+        
+            try:
+                if runs['run_5'][card[0]] == 0:
+                    runs['run_5'][card[0]] += 1
+            except:
+                pass
+           
+    list_of_dict = []
+    for dictionary in runs.values():
+        list_of_dict.append(dictionary.items())
+
+    totals = []
+    for run in runs.values():
+        totals.append(0)
+        for value in run.values():
+            totals[-1] += value           
+    max_val = 0
+    for number in totals:
+        if number > max_val:
+            max_val = number
+    
+    #Having a run of 8 cards without any aces... 
+    result = [[]]       
+    if max_val == 8:
+        run_required = list_of_dict[totals.index(8)]        
+        for value_required in run_required:
+            for card in hand_copy:
+                if card[0] == value_required[0]:
+                    hand_copy.remove(card)
+                    result[-1].append(card)
+                    break
+        return result 
+    
+    #Having a run of 8 cards with aces...    
+    elif max_val + aces >= 8: 
+        run_required = list_of_dict[totals.index(max_val)]
+        
+        run_required_v2 = []
+        for tup in run_required:
+            run_required_v2.append(list(tup)) 
+        for value_required in run_required_v2:
+            for card in hand_copy:
+                if card[0] == value_required[0] and value_required[1] == 1:
+                    value_required[1] -= 1
+                    hand_copy.remove(card)
+                    result[-1].append(card)
+                    break
+                elif card[0] == 'A' and value_required[1] == 0:
+                    value_required[1] -= 1
+                    hand_copy.remove(card)
+                    result[-1].append(card) 
+                    break
+        return result 
+    
+    #Else, if we can't make any run, we return a tuple as mentioned above 
+    index = -1    
+    for number in totals: 
+        index += 1
+        if number == max_val:
+            return ([(k) for (k, v) in list_of_dict[index] if v == 1],  
+                    [(k) for (k, v) in list_of_dict[index] if v == 0], 
+                    len([(k) for (k, v) in list_of_dict[index] if v == 0]))
+
+def count_phasedout_5_missing_cards(my_hand):
+    """
+    This function takes the hand of the player and sorts it to suit the 
+    cards that are needed for phase 5. If the hand already contains cards 
+    that can be phased out for phase 5, then the result will be the 2 lists
+    of the phased out cards, in a list. Else, this function returns 
+    the best cards that can be formed out of the hand for phase 5, in a 
+    tuple. This distinction will help to differentiate whether a complete 
+    and valid phase 5 can be formed out of the hand or not, to be used 
+    later in the game
+    
+    The tuples for phase 5 are of 3 distinct forms, depend on which cards are
+    needed, and which cards we already have:
+    
+    Form 1, where we have the run of cards, but we still miss the list of cards
+    of the same value:
+    ([[[best run of cards which we already have]], [[value1, number of cards 
+    being value1, 'RED/BLACK']]], number of missing cards needed to complete 
+    the phase)
+    
+    Form 2, where we have neither the run of cards, not the list of cards of 
+    the same value:
+    ([[best run of cards which we already have], [colour of the run, missing
+    values to complete the run], [value1, number of cards which we already have
+    for value1]], number of missing cards needed to complete the phase)
+    
+    Form 3, where we don't have the run of cards, but we have the list of cards
+    of the same value:
+    ([[best run of cards which we already have], [colour of the run, missing
+    values to complete the run], [cards which are of the same value]], 
+    number of missing cards needed to complete the phase) 
+    """
+    
+    #The codes below helps to determine the best run which is available in the 
+    #player's hand, using a dictionary of runs, for runs of red, and runs of 
+    #black
+    runs_of_red = {'run_1': {'2': 0, '3': 0, '4': 0, '5': 0},
+                   'run_2': {'3': 0, '4': 0, '5': 0, '6': 0},
+                   'run_3': {'4': 0, '5': 0, '6': 0, '7': 0},
+                   'run_4': {'5': 0, '6': 0, '7': 0, '8': 0},
+                   'run_5': {'6': 0, '7': 0, '8': 0, '9': 0},
+                   'run_6': {'7': 0, '8': 0, '9': 0, '0': 0},
+                   'run_7': {'8': 0, '9': 0, '0': 0, 'J': 0},
+                   'run_8': {'9': 0, '0': 0, 'J': 0, 'Q': 0},
+                   'run_9': {'0': 0, 'J': 0, 'Q': 0, 'K': 0}}
+    
+    runs_of_black = {'run_1': {'2': 0, '3': 0, '4': 0, '5': 0},
+                     'run_2': {'3': 0, '4': 0, '5': 0, '6': 0},
+                     'run_3': {'4': 0, '5': 0, '6': 0, '7': 0},
+                     'run_4': {'5': 0, '6': 0, '7': 0, '8': 0},
+                     'run_5': {'6': 0, '7': 0, '8': 0, '9': 0},
+                     'run_6': {'7': 0, '8': 0, '9': 0, '0': 0},
+                     'run_7': {'8': 0, '9': 0, '0': 0, 'J': 0},
+                     'run_8': {'9': 0, '0': 0, 'J': 0, 'Q': 0},
+                     'run_9': {'0': 0, 'J': 0, 'Q': 0, 'K': 0}}
+    
+    aces = 0
+    result = []
+    hand_copy = my_hand.copy()
+    red_run = False
+    black_run = False
+    
+    for card in hand_copy:
+        if card[0] == 'A':
+            aces += 1
+    
+    for card in hand_copy:
+        if card != 'ZZ':
+            if card[0] != 'A' and my_colour[card[1]] == 'RED':
+
+                try:
+                    if runs_of_red['run_1'][card[0]] == 0:
+                        runs_of_red['run_1'][card[0]] += 1              
+                except:
+                    pass 
+
+                try:
+                    if runs_of_red['run_2'][card[0]] == 0:
+                        runs_of_red['run_2'][card[0]] += 1
+                except:
+                    pass 
+
+                try:
+                    if runs_of_red['run_3'][card[0]] == 0:
+                        runs_of_red['run_3'][card[0]] += 1
+                except:
+                    pass 
+
+                try:
+                    if runs_of_red['run_4'][card[0]] == 0:
+                        runs_of_red['run_4'][card[0]] += 1
+                except:
+                    pass 
+
+                try:
+                    if runs_of_red['run_5'][card[0]] == 0:
+                        runs_of_red['run_5'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_red['run_6'][card[0]] == 0:
+                        runs_of_red['run_6'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_red['run_7'][card[0]] == 0:
+                        runs_of_red['run_7'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_red['run_8'][card[0]] == 0:
+                        runs_of_red['run_8'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_red['run_9'][card[0]] == 0:
+                        runs_of_red['run_9'][card[0]] += 1
+                except:
+                    pass
+            
+    for card in hand_copy:
+        if card != 'ZZ':
+            if card[0] != 'A' and my_colour[card[1]] == 'BLACK':
+
+                try:
+                    if runs_of_black['run_1'][card[0]] == 0:
+                        runs_of_black['run_1'][card[0]] += 1              
+                except:
+                    pass 
+
+                try:
+                    if runs_of_black['run_2'][card[0]] == 0:
+                        runs_of_black['run_2'][card[0]] += 1
+                except:
+                    pass 
+
+                try:
+                    if runs_of_black['run_3'][card[0]] == 0:
+                        runs_of_black['run_3'][card[0]] += 1
+                except:
+                    pass 
+
+                try:
+                    if runs_of_black['run_4'][card[0]] == 0:
+                        runs_of_black['run_4'][card[0]] += 1
+                except:
+                    pass 
+
+                try:
+                    if runs_of_black['run_5'][card[0]] == 0:
+                        runs_of_black['run_5'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_black['run_6'][card[0]] == 0:
+                        runs_of_black['run_6'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_black['run_7'][card[0]] == 0:
+                        runs_of_black['run_7'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_black['run_8'][card[0]] == 0:
+                        runs_of_black['run_8'][card[0]] += 1
+                except:
+                    pass
+
+                try:
+                    if runs_of_black['run_9'][card[0]] == 0:
+                        runs_of_black['run_9'][card[0]] += 1
+                except:
+                    pass
+           
+           
+    list_of_dict_red = []
+    for dictionary in runs_of_red.values():
+        list_of_dict_red.append(dictionary.items())
+        
+    list_of_dict_black = []
+    for dictionary in runs_of_black.values():
+        list_of_dict_black.append(dictionary.items())
+        
+    totals_red = []
+    for lst in list_of_dict_red:
+        totals_red.append([0, lst, 'RED'])
+        for tup in lst:
+            totals_red[-1][0] += tup[1]
+    
+    max_val_red = 0
+    for lst in totals_red:
+        if lst[0] > max_val_red:
+            max_val_red = lst[0]
+    if max_val_red == 4:
+        red_run = True
+    elif max_val_red + aces >= 4:
+        red_run = True
+               
+
+    totals_black = []
+    for lst in list_of_dict_black:
+        totals_black.append([0, lst, 'BLACK'])
+        for tup in lst:
+            totals_black[-1][0] += tup[1]
+    
+    max_val_black = 0
+    for lst in totals_black:
+        if lst[0] > max_val_black:
+            max_val_black = lst[0]
+    if max_val_black == 4:
+        black_run = True
+    elif max_val_black + aces >= 4:
+        black_run = True
+     
+    out_red = []
+    for lst in totals_red: 
+        if lst[0] == max_val_red:
+            out_red.append([[(k) for (k, v) in lst[1] if v == 1],
+                            [(k) for (k, v) in lst[1] if v == 0], 'RED'])
+            break
+                                     
+    out_black = []
+    for lst in totals_black: 
+        if lst[0] == max_val_black:
+            out_black.append([[(k) for (k, v) in lst[1] if v == 1],
+                              [(k) for (k, v) in lst[1] if v == 0], 'BLACK'])
+            break
+     
+    #For the situation where you have a run of red cards
+    if red_run and max_val_red >= max_val_black:
+        for lst in totals_red:
+            if lst[0] == max_val_red:
+                result.append([])
+                for tup in lst[1]:
+                    for card in hand_copy:
+                        if (card[0] == tup[0] and 
+                            my_colour[card[1]] == lst[2] and 
+                                tup[1] == 1):
+                            hand_copy.remove(card)
+                            result[-1].append(card)
+                            break
+                        elif card[0] == 'A' and tup[1] == 0:
+                            hand_copy.remove(card)
+                            result[-1].append(card)
+                            break
+                break
+        
+        #The codes below are for the list of cards of the same value 
+        phase_5_dd = defaultdict(int)
+        aces_v2 = 0 
+        for card in hand_copy:         
+            if card[0] != 'A' and card != 'ZZ':
+                phase_5_dd[card[0]] += 1
+            elif card != 'ZZ':
+                aces_v2 += 1
+
+    
+        phase_5_dd_v2 = sorted([(v, k) for (k, v) in 
+                                phase_5_dd.items()], reverse=True)      
+        
+        phase_5_dd_v3 = []
+        for tup in phase_5_dd_v2:
+            phase_5_dd_v3.append([tup[1], tup[0]])
+                
+        for lst in phase_5_dd_v3[0:1]:
+            
+            #If we have a list of 4 cards of the same value... 
+            if lst[1] >= 2:
+                
+                if lst[1] == 2:
+                    max_ace = 2              
+                if lst[1] == 3:
+                    max_ace = 1 
+                if lst[1] >= 4:
+                    max_ace = 0 
+                    
+                if lst[1] >= 4 or lst[1] + aces_v2 >= 4:
+                    result.append([])
+                    count = 4
+                    while count:
+                        for card in hand_copy:
+                            if card[0] == lst[0]:
+                                hand_copy.remove(card)
+                                result[-1].append(card)
+                                break
+                            elif (card[0] == 'A' and 
+                                  aces_v2 != 0 and 
+                                  max_ace != 0):
+                                hand_copy.remove(card)
+                                result[-1].append(card)
+                                max_ace -= 1
+                                break
+                        count -= 1                        
+                    return result
+                
+            #Else, if we don't have a list of 4 cards of the same value, a 
+            #tuple is returned, as mentioned above 
+            out = [[lst[0], lst[1], 'RED/BLACK']for lst 
+                   in phase_5_dd_v3[0:1]] 
+            number_of_missing_cards = 0
+            number_of_missing_cards += (4 - out[0][1])
+            return [result, [[lst[0], lst[1], 'RED/BLACK']for lst in 
+                    phase_5_dd_v3[0:1]]], number_of_missing_cards - aces_v2
+                                             
+    #For the situation where you have a run of black cards
+    elif black_run and max_val_black > max_val_red:
+        for lst in totals_black:
+            if lst[0] == max_val_black:
+                result.append([])
+                for tup in lst[1]:
+                    for card in hand_copy:
+                        if (card[0] == tup[0] and 
+                            my_colour[card[1]] == lst[2] and
+                                tup[1] == 1):
+                            hand_copy.remove(card)
+                            result[-1].append(card)
+                            break
+                        elif card[0] == 'A' and tup[1] == 0:
+                            hand_copy.remove(card)
+                            result[-1].append(card)
+                            break
+                break
+        
+        #The codes below are for the list of cards of the same value 
+        phase_5_dd = defaultdict(int)
+        aces_v2 = 0 
+        for card in hand_copy:         
+            if card[0] != 'A' and card != 'ZZ':
+                phase_5_dd[card[0]] += 1
+            elif card != 'ZZ':
+                aces_v2 += 1
+  
+    
+        phase_5_dd_v2 = sorted([(v, k) for (k, v) in 
+                                phase_5_dd.items()], reverse=True)      
+        
+        phase_5_dd_v3 = []
+        for tup in phase_5_dd_v2:
+            phase_5_dd_v3.append([tup[1], tup[0]])
+      
+        for lst in phase_5_dd_v3[0:1]:
+            
+            #If we have a list of 4 cards of the same value...
+            if lst[1] >= 2:
+                
+                if lst[1] == 2:
+                    max_ace = 2
+                if lst[1] == 3:
+                    max_ace = 1
+                if lst[1] >= 4:
+                    max_ace = 0
+                    
+                if lst[1] >= 4 or lst[1] + aces_v2 >= 4:                 
+                    result.append([])
+                    count = 4
+                    while count:
+                        for card in hand_copy:
+                            if card[0] == lst[0]:
+                                hand_copy.remove(card)
+                                result[-1].append(card)
+                                break
+                            elif (card[0] == 'A' and 
+                                  aces_v2 != 0 and 
+                                  max_ace != 0):
+                                hand_copy.remove(card)
+                                result[-1].append(card)
+                                max_ace -= 1
+                                break
+                        count -= 1
+                    return result
+                
+            #Else, if we don't have a list of 4 cards of the same value, a 
+            #tuple is returned, as mentioned above
+            out = [[lst[0], lst[1], 'RED/BLACK']for lst 
+                   in phase_5_dd_v3[0:1]] 
+            number_of_missing_cards = 0
+            number_of_missing_cards += (4 - out[0][1])
+            return [result, [[lst[0], lst[1], 'RED/BLACK']for lst 
+                    in phase_5_dd_v3[0:1]]], number_of_missing_cards - aces_v2
+
+            
+    
+    else:
+        #For the situation where we don't have any completed runs of cards,
+        #we can still have a list of 4 cards of the same value, or not 
+        best_run_of_card = []
+        
+        #We choose the best hand based on whether the run of red cards is 
+        #better than the run of black cards, or vice versa 
+        if max_val_red >= max_val_black:                 
+            for lst in totals_red:
+                if lst[0] == max_val_red:
+                    best_run_of_card.append([])
+                    best_run_of_card.append(['RED'])                       
+                    for tup in lst[1]:
+                        if tup[1] == 0:
+                            best_run_of_card[-1].append(tup[0])
+                            
+                            
+                        for card in hand_copy:
+                            if (card[0] == tup[0] and 
+                                my_colour[card[1]] == lst[2] and 
+                                    tup[1] == 1):
+                                hand_copy.remove(card)
+                                best_run_of_card[-2].append(card)
+                                break
+                            elif card[0] == 'A' and tup[1] == 0:
+                                hand_copy.remove(card)
+                                best_run_of_card[-2].append(card)
+                                break
+                    break
+                    
+            #Based on the remaining cards in hands, we then try to form the 
+            #second list 
+            phase_5_dd = defaultdict(int)
+            for card in hand_copy:         
+                if card[0] != 'A' and card != 'ZZ':
+                    phase_5_dd[card[0]] += 1
+
+            phase_5_dd_v2 = sorted([(v, k) for (k, v) in 
+                                    phase_5_dd.items()], reverse=True)      
+
+            phase_5_dd_v3 = []
+            for tup in phase_5_dd_v2:
+                phase_5_dd_v3.append([tup[1], tup[0]])
+
+            for lst in phase_5_dd_v3[0:1]:
+                
+                #Here, we have a list of 4 cards of the same value 
+                if lst[1] >= 4:
+                    best_run_of_card.append([])
+                    count = 4
+                    while count:
+                        for card in hand_copy:
+                            if card[0] == lst[0]:
+                                hand_copy.remove(card)
+                                best_run_of_card[-1].append(card)
+                                break
+                        count -= 1
+                    return best_run_of_card, 4 - len(best_run_of_card[0])
+                
+                #And here, we don't 
+                else:                    
+                    best_run_of_card.append(phase_5_dd_v3[0]) 
+                    return (best_run_of_card, 8 - 
+                            len(best_run_of_card[0]) - 
+                            best_run_of_card[2][1])
+
+        #Same situation as above, but for a black run 
+        elif max_val_black > max_val_red:
+            for lst in totals_black:
+                if lst[0] == max_val_black:
+                    best_run_of_card.append([])
+                    best_run_of_card.append(['BLACK'])                       
+                    for tup in lst[1]:
+                        if tup[1] == 0:
+                            best_run_of_card[-1].append(tup[0])
+                                                      
+                        for card in hand_copy:
+                            if (card[0] == tup[0] and 
+                                my_colour[card[1]] == lst[2] and 
+                                    tup[1] == 1):
+                                hand_copy.remove(card)
+                                best_run_of_card[-2].append(card)
+                                break
+                            elif card[0] == 'A' and tup[1] == 0:
+                                hand_copy.remove(card)
+                                best_run_of_card[-2].append(card)
+                                break
+                    break
+
+            phase_5_dd = defaultdict(int)
+            for card in hand_copy:         
+                if card[0] != 'A' and card != 'ZZ':
+                    phase_5_dd[card[0]] += 1
+
+            phase_5_dd_v2 = sorted([(v, k) for (k, v) in 
+                                    phase_5_dd.items()], reverse=True)      
+
+            phase_5_dd_v3 = []
+            for tup in phase_5_dd_v2:
+                phase_5_dd_v3.append([tup[1], tup[0]])
+
+            for lst in phase_5_dd_v3[0:1]:
+                if lst[1] >= 4:
+                    best_run_of_card.append([])
+                    count = 4
+                    while count:
+                        for card in hand_copy:
+                            if card[0] == lst[0]:
+                                hand_copy.remove(card)
+                                best_run_of_card[-1].append(card)
+                                break
+                        count -= 1
+                    return best_run_of_card, 4 - len(best_run_of_card[0]) 
+                            
+                else:                    
+                    best_run_of_card.append(phase_5_dd_v3[0]) 
+                    return (best_run_of_card, 
+                            8 - len(best_run_of_card[0]) - 
+                            best_run_of_card[2][1])      
+              
+        
+def phasedout_play(player_id, table, turn_history, phase_status, hand, 
+                   discard):
+    # Implement this function.
+           
+    dict_of_next_players = {0: 1, 1: 2, 2: 3, 3: 0}
+                                                   
+    current_player_phase = phase_status[player_id]
+    phase_required = current_player_phase + 1 
+            
+    
+    #For each phase, the player will either choose to draw from the discard 
+    #pile or draw from the deck, depending on whether the discard pile contains
+    #the card he/she wants (in that case, the player will choose to draw from 
+    #the discard pile). This is based on the phase required. 
+    #Else, the player draws from the deck. 
+      
+    if phase_required == 1 and table[player_id][0] is None:
+               
+        if turn_history != []:
+            if (dict_of_next_players[turn_history[-1][0]] == player_id and 
+                    turn_history[-1][-1][-1][0] == 5):
+
+                #If an ace is present in the discard pile, the player would 
+                #always choose to draw from the discard pile
+                if discard[0] == 'A':
+                    return (2, discard)
+                
+                if type(count_phasedout_1_missing_cards(hand)) == list:
+                    return (1, None)
+                
+                for lst in count_phasedout_1_missing_cards(hand)[0]:
+                    if discard[0] == lst[1]:
+                        return (2, discard)
+                    else: 
+                        return (1, None)
+
+
+        elif turn_history == []:
+            if discard[0] == 'A':
+                return (2, discard)
+
+            if type(count_phasedout_1_missing_cards(hand)) == list:
+                return (1, None)
+
+            for lst in count_phasedout_1_missing_cards(hand)[0]:
+                if discard[0] == lst[1]:
+                    return (2, discard)
+                else: 
+                    return (1, None)
+        
+    if phase_required == 2 and table[player_id][0] is None:
+        
+        if turn_history != []:
+            if (dict_of_next_players[turn_history[-1][0]] == player_id and 
+                    turn_history[-1][-1][-1][0] == 5):
+
+                if discard[0] == 'A':
+                    return (2, discard)
+
+                if type(count_phasedout_2_missing_cards(hand)) == list:
+                    return (1, None)
+
+                if discard[1] == count_phasedout_2_missing_cards(hand)[0][1]:
+                    return (2, discard)
+                else: 
+                    return (1, None)
+                
+        elif turn_history == []:
+            
+            if discard[0] == 'A':
+                return (2, discard)
+
+            if type(count_phasedout_2_missing_cards(hand)) == list:
+                return (1, None)
+
+            if discard[1] == count_phasedout_2_missing_cards(hand)[0][1]:
+                return (2, discard)
+            else: 
+                return (1, None)
+            
+            
+    if phase_required == 3 and table[player_id][0] is None:
+        
+        if turn_history != []:
+            if (dict_of_next_players[turn_history[-1][0]] == player_id and 
+                    turn_history[-1][-1][-1][0] == 5):
+
+                if discard[0] == 'A':
+                    return (2, discard)
+                
+                if type(count_phasedout_3_missing_cards(hand)) == list:
+                    return (1, None)
+                
+                for lst in count_phasedout_3_missing_cards(hand)[0]:
+                    if discard[0] == lst[1]:
+                        return (2, discard)
+                    else: 
+                        return (1, None)
+
+
+        elif turn_history == []:
+            if discard[0] == 'A':
+                return (2, discard)
+
+            if type(count_phasedout_3_missing_cards(hand)) == list:
+                return (1, None)
+
+            for lst in count_phasedout_3_missing_cards(hand)[0]:
+                if discard[0] == lst[1]:
+                    return (2, discard)
+                else: 
+                    return (1, None)
+            
+    if phase_required == 4 and table[player_id][0] is None:
+        
+        if turn_history != []:
+            if (dict_of_next_players[turn_history[-1][0]] == player_id and 
+                    turn_history[-1][-1][-1][0] == 5):
+
+                if discard[0] == 'A':
+                    return (2, discard)
+                
+                if type(count_phasedout_4_missing_cards(hand)) == list:
+                    return (1, None)
+                
+                for value in count_phasedout_4_missing_cards(hand)[1]:
+                    if discard[0] == value:
+                        return (2, discard)         
+                return (1, None)
+
+
+        elif turn_history == []:
+            if discard[0] == 'A':
+                return (2, discard)
+
+            if type(count_phasedout_4_missing_cards(hand)) == list:
+                return (1, None)
+
+            for value in count_phasedout_4_missing_cards(hand)[1]:
+                if discard[0] == value:
+                    return (2, discard)         
+            return (1, None)
+            
+    if phase_required == 5 and table[player_id][0] is None:
+        
+        if turn_history != []:
+            if (dict_of_next_players[turn_history[-1][0]] == player_id and 
+                    turn_history[-1][-1][-1][0] == 5):
+
+                if discard[0] == 'A':
+                    return (2, discard)
+                
+                if type(count_phasedout_5_missing_cards(hand)) == list:
+                    return (1, None)
+                
+                #For the situation where for phase 5, we miss only cards in the
+                #list of cards of the same value... 
+                if len(count_phasedout_5_missing_cards(hand)[0]) == 2:
+                    if (discard[0] == 
+                            count_phasedout_5_missing_cards(hand)[0][1][0][0]):
+                        return (2, discard)
+                    else:
+                        return (1, None)
+                    
+                #For the situation where for phase 5, we miss the cards in the
+                #list of cards of the same value, or the run, or both     
+                elif len(count_phasedout_5_missing_cards(hand)[0]) == 3:
+                    values_missing_for_run = [] 
+                    for value in count_phasedout_5_missing_cards(hand
+                                                                 )[0][1][1:]:
+                        values_missing_for_run.append(value)
+                    if (discard[0] in values_missing_for_run and 
+                        my_colour[discard[1]] == 
+                            count_phasedout_5_missing_cards(hand)[0][1][0]):
+                        return (2, discard)
+                    
+                    #To check if we miss cards of the same value... 
+                    if len(count_phasedout_5_missing_cards(hand)[0][2]) == 2:
+                        if (discard[0] == 
+                                count_phasedout_5_missing_cards(hand
+                                                                )[0][2][0]):
+                            return (2, discard)
+                   
+                    return (1, None)
+                    
+
+
+        elif turn_history == []:
+
+            if discard[0] == 'A':
+                return (2, discard)
+
+            if type(count_phasedout_5_missing_cards(hand)) == list:
+                return (1, None)
+
+            if len(count_phasedout_5_missing_cards(hand)[0]) == 2:
+                if (discard[0] == 
+                        count_phasedout_5_missing_cards(hand)[0][1][0][0]):
+                    return (2, discard)
+                else:
+                    return (1, None)
+
+            elif len(count_phasedout_5_missing_cards(hand)[0]) == 3:
+                values_missing_for_run = [] 
+                for value in count_phasedout_5_missing_cards(hand)[0][1][1:]:
+                    values_missing_for_run.append(value)
+                if (discard[0] in values_missing_for_run and 
+                    my_colour[discard[1]] == 
+                        count_phasedout_5_missing_cards(hand)[0][1][0]):
+                    return (2, discard)
+
+                if len(count_phasedout_5_missing_cards(hand)[0][2]) == 2:
+                    if (discard[0] == 
+                            count_phasedout_5_missing_cards(hand)[0][2][0]):
+                        return (2, discard)
+
+                return (1, None)    
+            
+    #In any other cases, after the player has phased out for a hand, the player
+    #will choose to get rid of the cards with the highest values... 
+    if (dict_of_next_players[turn_history[-1][0]] == player_id and 
+        turn_history[-1][-1][-1][0] == 5 and 
+            table[player_id][0] is not None):
+
+        max_val_in_hand = 0
+        for card in hand:
+            if card[0] != 'A':
+                if score_dict[card[0]] > max_val_in_hand:
+                    max_val_in_hand = score_dict[card[0]]
+
+        if score_dict[discard[0]] < max_val_in_hand:
+            return (2, discard)
+        
+        return (1, None)
+                       
+    #The second play will either be phasing out (if the cards in the 
+    #player's hand can be phased out), or placing cards on phases which are 
+    #already on the table if the player has already phased out, or both, 
+    #or none of them 
+    if (turn_history[-1][0] == player_id and 
+        turn_history[-1][-1][-1][0] != 5 and
+        turn_history[-1][-1][-1][0] != 3 and 
+            table[player_id][0] is None):
+                                                    
+        #If the player can phase out, he/she will choose to do so.
+        if (type(count_phasedout_1_missing_cards(hand)) == list and 
+                phase_required == 1):        
+            return (3, count_phasedout_1_missing_cards(hand))
+        
+        if (type(count_phasedout_2_missing_cards(hand)) == list and 
+                phase_required == 2):       
+            return (3, count_phasedout_2_missing_cards(hand))
+        
+        if (type(count_phasedout_3_missing_cards(hand)) == list and 
+                phase_required == 3):
+            return (3, count_phasedout_3_missing_cards(hand))
+        
+        if (type(count_phasedout_4_missing_cards(hand)) == list and 
+                phase_required == 4): 
+            return (3, count_phasedout_4_missing_cards(hand))
+        
+        if (type(count_phasedout_5_missing_cards(hand)) == list and 
+                phase_required == 5):
+            return (3, count_phasedout_5_missing_cards(hand))
+        
+        #If the player cannot phase out, the only move that the player has left
+        #is to discard. This is based on the phase required 
+        if phase_required == 1:
+            max_val = 0 
+            values_required = []
+            for lst in count_phasedout_1_missing_cards(hand)[0]:
+                values_required.append(lst[1])
+
+            for card in hand:
+                if (card[0] != 'A' and 
+                    card[0] not in values_required and
+                        score_dict[card[0]] > max_val):
+                    max_val = score_dict[card[0]]
+
+            for card in hand:
+                if (card[0] != 'A' and 
+                    card[0] not in values_required and
+                        score_dict[card[0]] == max_val):
+                    return (5, card)
+
+        if phase_required == 2:
+            max_val = 0 
+            for card in hand:
+                if (card[0] != 'A' and 
+                    card[1] != count_phasedout_2_missing_cards(hand)[0][1] and
+                        score_dict[card[0]] > max_val):
+                    max_val = score_dict[card[0]]
+
+            for card in hand:
+                if (card[0] != 'A' and 
+                    card[1] != count_phasedout_2_missing_cards(hand)[0][1] and
+                        score_dict[card[0]] == max_val):
+                    return (5, card)
+
+        if phase_required == 3:
+            max_val = 0 
+            values_required = []
+            for lst in count_phasedout_3_missing_cards(hand)[0]:
+                values_required.append(lst[1])
+
+            for card in hand:
+                if (card[0] != 'A' and 
+                    card[0] not in values_required and
+                        score_dict[card[0]] > max_val):
+                    max_val = score_dict[card[0]]
+
+            for card in hand:
+                if (card[0] != 'A' and 
+                        card[0] not in values_required and
+                        score_dict[card[0]] == max_val):
+                    return (5, card)
+
+        if phase_required == 4:
+            max_val = 0 
+            for card in hand:
+
+                if (card[0] != 'A' and 
+                    card[0] not in count_phasedout_4_missing_cards(hand)[0] and
+                        score_dict[card[0]] > max_val):
+                    max_val = score_dict[card[0]]
+
+            for card in hand:
+                if (card[0] != 'A' and 
+                    card[0] not in count_phasedout_4_missing_cards(hand)[0] and
+                        score_dict[card[0]] == max_val):
+                    return (5, card)
+
+            #There exists the rare case where all cards in hand are values that  
+            #are present in the best run. In this case, the card with the 
+            #highest value is discarded 
+            max_val = 0
+            for card in hand:
+                if card[0] != 'A' and card != 'ZZ':
+                    if score_dict[card[0]] > max_val:
+                        max_val = score_dict[card[0]]
+
+            for card in hand:
+                if score_dict[card[0]] == max_val:
+                    return (5, card) 
+
+        if phase_required == 5:
+            max_val = 0  
+            
+            #In the case where for phase 5, we have the run of cards of the 
+            #same colour, but miss the list of cards of the same value... 
+            if len(count_phasedout_5_missing_cards(hand)[0]) == 2:                                   
+                for card in hand:
+                    if (card[0] != 'A' and 
+                        card[0] != 
+                        count_phasedout_5_missing_cards(hand)[0][1][0][0] and
+                        card not in 
+                        count_phasedout_5_missing_cards(hand)[0][0][0] and 
+                            score_dict[card[0]] > max_val):
+                        max_val = score_dict[card[0]]
+
+                for card in hand:
+                    if (card[0] != 'A' and 
+                        card[0] != 
+                        count_phasedout_5_missing_cards(hand)[0][1][0][0] and
+                        card not in 
+                        count_phasedout_5_missing_cards(hand)[0][0][0] and 
+                            score_dict[card[0]] == max_val):
+                        return (5, card)
+
+            #In the case where for phase 5, we miss both the run of cards of  
+            #the same colour, and the list of cards of the same value...           
+            if len(count_phasedout_5_missing_cards(hand)[0]) == 3:
+                cards_required_for_run = []
+
+                for card in count_phasedout_5_missing_cards(hand)[0][0]:
+                    cards_required_for_run.append(card)
+
+                for card in hand:
+                    if (card[0] != 'A' and 
+                        card not in cards_required_for_run and
+                        card[0] != 
+                        count_phasedout_5_missing_cards(hand)[0][2][0] and
+                            score_dict[card[0]] > max_val):
+                        max_val = score_dict[card[0]]
+
+                for card in hand:
+                    if (card[0] != 'A' and 
+                        card not in cards_required_for_run and
+                        card[0] != 
+                        count_phasedout_5_missing_cards(hand)[0][2][0] and 
+                            score_dict[card[0]] == max_val):
+                        return (5, card)
+
+            #There exists the rare case where all cards in hand are values that  
+            #are present in the best run. In this case, the card with the 
+            #highest value is discarded 
+            max_val = 0
+            for card in hand:
+                if card[0] != 'A':
+                    if score_dict[card[0]] > max_val:
+                        max_val = score_dict[card[0]]
+
+            for card in hand:
+                if score_dict[card[0]] == max_val:
+                    return (5, card)                                                   
+                                                                                                                            
+    #If the player has already phased out, the player can choose whether 
+    #to place other cards in his/her hand in other phases on the table,
+    #or to discard a card from his/her hand and end his/her turn
+                   
+    if (turn_history[-1][0] == player_id and
+        (turn_history[-1][-1][-1][0] == 1 or
+         turn_history[-1][-1][-1][0] == 2 or 
+         turn_history[-1][-1][-1][0] == 3 or
+         turn_history[-1][-1][-1][0] == 4) and 
+            table[player_id][0] is not None):
+                   
+        aces = 0   
+        for card in hand:
+            if card[0] == 'A':
+                aces += 1
+                                 
+        #For non-wild cards in the player's hand, the player can 
+        #choose to place them on the phases on the table, which depends 
+        #on the phase types
+        for phase in table:
+            
+            if phase[0] == 5:                           
+                                                      
+                my_iterator = iter(phase[1][0])
+                position = 0
+                
+                #Trying to add cards to the run of cards of the same colour
+                for card in phase[1][0]:
+                    position += 1 
+                    if card[0] != 'A':
+                        colour_required = my_colour[card[1]]
+                        counter = score_dict[card[0]]
+                        break
+
+                while position:
+                    counter -= 1
+                    position -= 1
+
+                if counter <= 1:
+                    value_in_left_end = None
+                else:
+                    value_in_left_end = counter 
+
+                for card in my_iterator:
+                    if card[0] != 'A':
+                        counter2 = score_dict[card[0]]
+                        break
+
+                for card in my_iterator:
+                    counter2 += 1
+
+                value_in_right_end = counter2 + 1 
+
+                for card in hand:
+                    if value_in_left_end is not None:                                
+                        if (card[0] == 
+                                score_dict_reverse[value_in_left_end] and 
+                                my_colour[card[1]] == colour_required):
+                            return (4, (card, (table.index(phase), 0, 0)))
+
+                    if value_in_right_end <= 13:
+                        if (card[0] ==
+                                score_dict_reverse[value_in_right_end] and 
+                                my_colour[card[1]] == colour_required):
+                            return (4, (card, (table.index(phase), 0, 
+                                               len(phase[1][0])))) 
+                        
+                #Trying to add cards to the list of cards of the same value
+                for card in phase[1][1]:
+                    if card[0] != 'A':
+                        value_required = card[0]
+                        break
+                        
+                for card in hand:
+                    if card[0] == value_required:
+                        return (4, (card, (table.index(phase), 1, 0)))
+            
+            values_for_phase_5_right_end = []
+            values_for_phase_5_left_end = []
+            if phase[0] == 5:                           
+                                                      
+                my_iterator = iter(phase[1][0])
+                position = 0
+                
+                for card in phase[1][0]:
+                    position += 1 
+                    if card[0] != 'A':
+                        colour_required = my_colour[card[1]]
+                        counter = score_dict[card[0]]
+                        break
+
+                while position:
+                    counter -= 1
+                    position -= 1
+
+                if counter <= 1:
+                    value_in_left_end = None
+                else:
+                    value_in_left_end = counter 
+
+                for card in my_iterator:
+                    if card[0] != 'A':
+                        counter2 = score_dict[card[0]]
+                        break
+
+                for card in my_iterator:
+                    counter2 += 1
+
+                value_in_right_end = counter2 + 1
+                
+                if value_in_right_end <= 13:                
+                    values_for_phase_5_right_end.append(value_in_right_end)
+                
+                if value_in_right_end <= 12:                
+                    values_for_phase_5_right_end.append(value_in_right_end + 1)
+                    
+                if value_in_left_end is not None:
+                    if value_in_left_end >= 2:                
+                        values_for_phase_5_left_end.append(value_in_left_end)
+                    
+                    if value_in_left_end >= 3:                
+                        values_for_phase_5_left_end.append(value_in_left_end - 
+                                                           1)
+                
+                if len(values_for_phase_5_right_end) == 2:                    
+                    for card in hand:
+                        if (score_dict[card[0]] == 
+                            values_for_phase_5_right_end[1] and 
+                            my_colour[card[1]] == colour_required and 
+                                aces >= 1):
+                            for card in hand:
+                                if card[0] == 'A':
+                                    return (4, (card, (table.index(phase), 0, 
+                                                       len(phase[1][0])))) 
+                                
+                if len(values_for_phase_5_left_end) == 2:                   
+                    for card in hand:
+                        if (score_dict[card[0]] == 
+                            values_for_phase_5_left_end[1] and 
+                            my_colour[card[1]] == colour_required and 
+                                aces >= 1):
+                            for card in hand:
+                                if card[0] == 'A':
+                                    return (4, (card, (table.index(phase), 0, 
+                                                       0))) 
+                                                                                                 
+            if phase[0] == 4:
+                for lst in phase[1]:
+                            
+                            
+                    my_iterator = iter(lst)
+                    position = 0
+                        
+                    for card in lst:
+                        position += 1                                
+                        if card[0] != 'A':
+                            counter = score_dict[card[0]]
+                            break
+                                    
+                    while position:
+                        counter -= 1
+                        position -= 1
+                                
+                    if counter <= 1:
+                        value_in_left_end = None
+                    else:
+                        value_in_left_end = counter 
+                                
+                    for card in my_iterator:
+                        if card[0] != 'A':
+                            counter2 = score_dict[card[0]]
+                            break
+                                    
+                    for card in my_iterator:
+                        counter2 += 1
+                                
+                    value_in_right_end = counter2 + 1 
+                            
+                    for card in hand:
+                        if value_in_left_end is not None:                                
+                            if (card[0] == 
+                                    score_dict_reverse[value_in_left_end]):
+                                return (4, (card, (table.index(phase), 
+                                                   0, 0)))
+                            
+                        if value_in_right_end <= 13:
+                            if (card[0] ==
+                                    score_dict_reverse[value_in_right_end]):
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(lst))))
+                            
+            values_for_phase_4_right_end = []
+            values_for_phase_4_left_end = []
+            if phase[0] == 4:                           
+                                                      
+                my_iterator = iter(phase[1][0])
+                position = 0
+                
+                #Trying to add cards to the run of cards of the same colour
+                for card in phase[1][0]:
+                    position += 1 
+                    if card[0] != 'A':
+                        colour_required = my_colour[card[1]]
+                        counter = score_dict[card[0]]
+                        break
+
+                while position:
+                    counter -= 1
+                    position -= 1
+
+                if counter <= 1:
+                    value_in_left_end = None
+                else:
+                    value_in_left_end = counter 
+
+                for card in my_iterator:
+                    if card[0] != 'A':
+                        counter2 = score_dict[card[0]]
+                        break
+
+                for card in my_iterator:
+                    counter2 += 1
+                
+                value_in_right_end = counter2 + 1
+                while value_in_right_end < 13:
+                    value_in_right_end += 1  
+                    values_for_phase_4_right_end.append(value_in_right_end)
+                
+                if value_in_left_end is not None:
+                    values_for_phase_4_right_end.append(value_in_left_end)
+                    while value_in_left_end > 2:
+                        value_in_left_end -= 1
+                        values_for_phase_4_left_end.append(value_in_left_end)
+                    
+                if len(values_for_phase_4_right_end) == 4:                   
+                    J_present = False
+                    Q_present = False
+                    K_present = False
+                    
+                    for card in hand:
+                        if card[0] == 'J':
+                            J_present = True
+                        if card[0] == 'Q':
+                            Q_present = True
+                        if card[0] == 'K':
+                            K_present = True
+                            
+                    if J_present:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                            
+                    if Q_present and J_present is False and aces >= 2:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                            
+                    if (K_present and J_present is False and 
+                            Q_present is False and aces >= 3):
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                                                 
+                if len(values_for_phase_4_right_end) == 3:
+                    Q_present = False
+                    K_present = False
+                    
+                    for card in hand:
+                        if card[0] == 'Q':
+                            Q_present = True
+                        if card[0] == 'K':
+                            K_present = True
+                            
+                    if Q_present:
+                        
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+ 
+                    if K_present and aces >= 2:                 
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                    
+                                
+                if len(values_for_phase_4_right_end) == 2:
+                    K_present = False
+                    
+                    for card in hand:
+                        if card[0] == 'K':
+                            K_present = True
+                    
+                    if K_present and aces >= 1:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                
+                
+                if len(values_for_phase_4_left_end) == 4:                   
+                    four_present = False
+                    three_present = False
+                    two_present = False
+                    
+                    for card in hand:
+                        if card[0] == '4':
+                            four_present = True
+                        if card[0] == '3':
+                            three_present = True
+                        if card[0] == '2':
+                            two_present = True
+                            
+                    if four_present:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                            
+                    if three_present and four_present is False and aces >= 2:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                            
+                    if (two_present and four_present is False and 
+                            three_present is False and aces >= 3):
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                                                 
+                if len(values_for_phase_4_right_end) == 3:
+                    three_present = False
+                    two_present = False
+                    
+                    for card in hand:
+                        if card[0] == '3':
+                            three_present = True
+                        if card[0] == '2':
+                            two_present = True
+                            
+                    if three_present:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                    
+                    if two_present and aces >= 2:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                    
+                                
+                if len(values_for_phase_4_right_end) == 2:
+                    two_present = False
+                    
+                    for card in hand:
+                        if card[0] == '2':
+                            two_present = True
+                    
+                    if two_present and aces >= 1:
+                        for card in hand:
+                            if card[0] == 'A':
+                                return (4, (card, (table.index(phase), 0, 
+                                                   len(phase[1][0]))))
+                            
+                #If there's is only phase 4 on the table, and no conditions 
+                #above are passed, and you still have aces in your hand, you 
+                #would still want to get rid of the aces if possible.
+                #The code below ensures this
+                for lst in phase[1]:                                                     
+                    my_iterator = iter(lst)
+                    position = 0
+                        
+                    for card in lst:
+                        position += 1                                
+                        if card[0] != 'A':
+                            counter = score_dict[card[0]]
+                            break
+                                    
+                    while position:
+                        counter -= 1
+                        position -= 1
+                                
+                    if counter <= 1:
+                        value_in_left_end = None
+                    else:
+                        value_in_left_end = counter 
+                                
+                    for card in my_iterator:
+                        if card[0] != 'A':
+                            counter2 = score_dict[card[0]]
+                            break
+                                    
+                    for card in my_iterator:
+                        counter2 += 1
+                                
+                    value_in_right_end = counter2 + 1 
+                            
+                    for card in hand:
+                        if card[0] == 'A' and value_in_left_end is not None:
+                            return (4, (card, (table.index(phase), 0, 0)))
+                        elif card[0] == 'A' and value_in_right_end <= 13:
+                            return (4, (card, (table.index(phase), 0, 
+                                               len(lst))))
+                                                                                  
+        for phase in table:
+                                                                                                 
+            if phase[0] == 1:                                              
+                for lst in phase[1]:
+                    for card in lst:
+                        if card[0] != 'A':
+                            value_required = card[0]
+                            break
+                    for card in hand:
+                        if card[0] == value_required:
+                            return (4, (card, (table.index(phase),
+                                               phase[1].index(lst), 0)))
+                        elif card[0] == 'A':
+                            return (4, (card, (table.index(phase),
+                                               phase[1].index(lst), 0)))
+                                                                                      
+            if phase[0] == 2:
+                for lst in phase[1]:
+                    for card in lst:
+                        if card[0] != 'A':
+                            suit_required = card[1]
+                            break
+                    for card in hand:
+                        if card[1] == suit_required:
+                            return (4, (card, (table.index(phase), 0, 0)))
+                        elif card[0] == 'A':
+                            return (4, (card, (table.index(phase), 0, 0)))
+                                
+            if phase[0] == 3:
+                for lst in phase[1]:
+                    for card in lst:
+                        if card[0] != 'A':
+                            value_required = card[0]
+                            break
+                    for card in hand:
+                        if card[0] == value_required:
+                            return (4, (card, (table.index(phase),
+                                               phase[1].index(lst), 0)))
+                        elif card[0] == 'A':
+                            return (4, (card, (table.index(phase),
+                                               phase[1].index(lst), 0)))
+                        
+            if phase[0] == 5:                           
+                                                                                            
+                #Trying to add cards to the list of cards of the same value
+                for card in phase[1][1]:
+                    if card[0] != 'A':
+                        value_required = card[0]
+                        break
+                        
+                for card in hand:
+                    if card[0] == value_required:
+                        return (4, (card, (table.index(phase), 1, 0)))
+                    elif card[0] == 'A':
+                        return (4, (card, (table.index(phase), 1, 0)))
+    
+    #If the player has phased out, the player will choose to discard cards 
+    #with the highest values first 
+    if turn_history[-1][0] == player_id and table[player_id][0] is not None:
+        max_value = 0
+        for card in hand:
+            if score_dict[card[0]] > max_value and card[0] != 'A':
+                max_value = score_dict[card[0]]
+        
+        if max_value != 0:
+            for card in hand:
+                if card[0] == score_dict_reverse[max_value] and card[0] != 'A':
+                    return (5, card)
+        else:
+            for card in hand:
+                return (5, card)
+  
+if __name__ == '__main__':
+    # Example call to the function.
+    print(phasedout_play(1, [(None, []), (4, [['2C', '3H', '4D', 'AD', '6S', '7C', '8S', '9H', '0S', 'JS']]), (None, []), (None, [])], [(0, [(2, 'JS'), (5, 'JS')]), (1, [(2, 'JS'), (3, [['2C', '3H', '4D', 'AD', '6S', '7C', '8S', '9H']]), (4, ('0S', (1, 0, 8))), (4, ('JS', (1, 0, 9)))])], [0, 4, 0, 0], ['5D'], '7H'))
+    
